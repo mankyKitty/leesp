@@ -3,7 +3,7 @@ Leesp!
 
 Wrote myself a Scheme in 48 hours, fancy that... (from the book of a remarkably similar name!).
 
-Thanks to @bodil for the inspiration to try my hand at building a Lisp, and thank you to Jonathan Tang and everyone that has contributed to the WikiBook in what ever capacity.
+Thanks to @bodil and @fogus for the inspiration to try my hand at building a Lisp, and thank you to Jonathan Tang and everyone that has contributed to the WikiBook in what ever capacity.
 
 To try your own hand at this head on over to [the book](https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours) and get cracking.
 
