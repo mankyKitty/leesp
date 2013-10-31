@@ -19,7 +19,7 @@ parseCharacter = do
   return $ Character $ case value of
     "space" -> ' '
     "newline" -> '\n'
-    otherwise -> (value !! 0)
+    otherwise -> head value
 
 escapeChars :: Parser Char
 escapeChars = do char '\\'
@@ -51,7 +51,7 @@ parseString = do char '"'
 parseAtom :: Parser LispVal
 parseAtom = do first <- letter <|> symbol
                rest <- many (letter <|> digit <|> symbol)
-               let atom = [first] ++ rest
+               let atom = first : rest
                return $ case atom of
                           "#t" -> Bool True
                           "#f" -> Bool False
@@ -61,7 +61,7 @@ parseNumber :: Parser LispVal
 parseNumber = parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
 
 parseDigital1 :: Parser LispVal
-parseDigital1 = many1 digit >>= (return . Number . read)
+parseDigital1 = liftM (Number . read) (many1 digit)
 
 parseDigital2 :: Parser LispVal
 parseDigital2 = do try $ string "#d"
@@ -102,7 +102,7 @@ parseExpr = parseAtom
         <|> try parseCharacter
         <|> parseQuoted
         <|> do char '('
-               x <- (try parseList) <|> parseDottedList
+               x <- try parseList <|> parseDottedList
                char ')'
                return x
 

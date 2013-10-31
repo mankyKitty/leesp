@@ -11,6 +11,8 @@ data LispVal = Atom String
              | Bool Bool
              | Character Char
              | Keyword String
+             | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
+             | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}
 
 data LispError = NumArgs Integer [LispVal]
          | TypeMismatch String LispVal
