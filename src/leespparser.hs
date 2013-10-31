@@ -6,7 +6,7 @@ import Numeric (readOct, readHex)
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=?>@^_~"
+symbol = oneOf "!$%&|*+-/<=?>@^_~"
 
 spaces :: Parser ()
 spaces = skipMany1 space
@@ -36,6 +36,11 @@ parseBool = do
   char '#'
   (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
 
+parseKeyword :: Parser LispVal
+parseKeyword = do
+  char ':'
+  x <- many1 (letter <|> digit <|> symbol)
+  return $ Keyword $ ':':x
 
 parseString :: Parser LispVal
 parseString = do char '"'
@@ -91,6 +96,7 @@ bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1) in
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
+        <|> parseKeyword
         <|> try parseNumber
         <|> try parseBool
         <|> try parseCharacter

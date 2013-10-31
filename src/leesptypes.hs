@@ -10,6 +10,7 @@ data LispVal = Atom String
              | String String
              | Bool Bool
              | Character Char
+             | Keyword String
 
 data LispError = NumArgs Integer [LispVal]
          | TypeMismatch String LispVal
@@ -56,3 +57,4 @@ showVal (Bool True)            = "#t"
 showVal (Bool False)           = "#f"
 showVal (List contents)        = "(" ++ unWordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unWordsList head ++ " . " ++ showVal tail ++ ")"
+showVal (Keyword kword)        = kword

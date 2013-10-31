@@ -61,6 +61,7 @@ eval val@(String _)                        = return val
 eval val@(Number _)                        = return val
 eval val@(Bool _)                          = return val
 eval val@(Character _)                     = return val
+eval val@(Keyword _)                       = return val
 -- Handled Quoting.
 eval (List [Atom "quote", val])            = return val
 -- Flow Control Functions.
@@ -246,7 +247,9 @@ eqv [(Number arg1), (Number arg2)]         = return $ Bool $ arg1 == arg2
 eqv [(String arg1), (String arg2)]         = return $ Bool $ arg1 == arg2
 eqv [(Atom arg1), (Atom arg2)]             = return $ Bool $ arg1 == arg2
 eqv [(DottedList xs x), (DottedList ys y)] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
-eqv [(List arg1), (List arg2)]             = return $ Bool $ (length arg1 == length arg2) && (and $ map eqvPair $ zip arg1 arg2)
+eqv [(List arg1), (List arg2)]             = return
+  $ Bool
+  $ (length arg1 == length arg2) && (and $ map eqvPair $ zip arg1 arg2)
   where
     eqvPair (x1, x2) = case eqv [x1, x2] of
                         Left err -> False
