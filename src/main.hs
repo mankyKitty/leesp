@@ -70,11 +70,6 @@ readExpr = readOrThrow parseExpr
 readExprList :: String -> ThrowsError [LispVal]
 readExprList = readOrThrow (endBy parseExpr spaces)
 
---readExpr :: String -> ThrowsError LispVal
---readExpr input = case parse parseExpr "lisp" input of
---  Left err  -> throwError $ Parser err
---  Right val -> return val
-
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
 apply (Func params varargs body closure) args =
@@ -83,7 +78,7 @@ apply (Func params varargs body closure) args =
     else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
   where
     remainingArgs = drop (length params) args
-    num = L.genericLength
+    num = toInteger . length
     evalBody env = liftM last $ mapM (eval env) body
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
@@ -97,18 +92,22 @@ eval env val@(Bool _)                          = return val
 eval env val@(Character _)                     = return val
 eval env val@(Keyword _)                       = return val
 eval env (Atom id)                             = getVar env id
+-- Handled Quoting.
+eval env (List [Atom "quote", val])            = return val
 -- Load a file and eval the contents
 eval env (List [Atom "load", String filename]) =
   load filename >>= liftM last . mapM (eval env)
--- Handled Quoting.
-eval env (List [Atom "quote", val])            = return val
 -- Flow Control Functions.
-eval env (List [Atom "if", pred, conseq, alt]) = myIfFun env pred conseq alt
-eval env (List (Atom "cond" : items))          = myCondFun env items
-eval env (List (Atom "case" : sel : choices))  =
+eval env (List [Atom "if", pred, conseq, alt]) =
+  myIfFun env pred conseq alt
+eval env (List (Atom "cond" : items)) =
+  myCondFun env items
+eval env (List (Atom "case" : sel : choices)) =
   eval env sel >>= myCaseFun env choices
-eval env (List [Atom "set!", Atom var, form])  = eval env form >>= setVar env var
-eval env (List [Atom "define", Atom var, form])= eval env form >>= defineVar env var
+eval env (List [Atom "set!", Atom var, form]) =
+  eval env form >>= setVar env var
+eval env (List [Atom "define", Atom var, form]) =
+  eval env form >>= defineVar env var
 eval env (List (Atom "define" : List (Atom var : params) : body)) =
   makeNormalFunc env params body >>= defineVar env var
 eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
@@ -124,7 +123,7 @@ eval env (List (function : args)) = do
   argVals <- mapM (eval env) args
   apply func argVals
 -- Yer done gone f**ked up.
-eval env badForm                               =
+eval env badForm =
   throwError $ BadSpecialForm "Unrecognised special form" badForm
 
 myCaseFun :: Env -> [LispVal] -> LispVal -> IOThrowsError LispVal
@@ -160,14 +159,15 @@ myCondFun env (pred:conseq:rest) = do
     otherwise  -> liftThrows . throwError $ TypeMismatch "boolean" pred
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
-primitives = [("+", numericBinop (+)),
+primitives =
         -- Basic Maths Functions
-			  ("-", numericBinop (-)),
-			  ("*", numericBinop (*)),
-			  ("/", numericBinop div),
-			  ("mod", numericBinop mod),
-			  ("quotient", numericBinop quot),
-			  ("remainder", numericBinop rem),
+        [("+", numericBinop (+)),
+        ("-", numericBinop (-)),
+        ("*", numericBinop (*)),
+        ("/", numericBinop div),
+        ("mod", numericBinop mod),
+        ("quotient", numericBinop quot),
+        ("remainder", numericBinop rem),
         -- Comparison Functions
         ("=", numBoolBinop (==)),
         ("<", numBoolBinop (<)),
@@ -252,9 +252,9 @@ stringLength badArgList   = throwError $ NumArgs 1 badArgList
 
 makeStringN :: [LispVal] -> ThrowsError LispVal
 makeStringN [Number n, Character c] = (return . String . L.genericTake n) $ repeat c
-makeStringN [Number n, _] = (return . String . L.genericTake n) ['a'..]
-makeStringN [bad, _] = throwError $ TypeMismatch "number [char]" bad
-makeStringN badArgList = throwError $ NumArgs 1 badArgList
+makeStringN [Number n, _]           = (return . String . L.genericTake n) ['a'..]
+makeStringN [bad, _]                = throwError $ TypeMismatch "number [char]" bad
+makeStringN badArgList              = throwError $ NumArgs 1 badArgList
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
@@ -311,7 +311,7 @@ eqv [Number arg1, Number arg2]         = return $ Bool $ arg1 == arg2
 eqv [String arg1, String arg2]         = return $ Bool $ arg1 == arg2
 eqv [Atom arg1, Atom arg2]             = return $ Bool $ arg1 == arg2
 eqv [DottedList xs x, DottedList ys y] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
-eqv [List arg1, List arg2]              = return
+eqv [List arg1, List arg2]             = return
   $ Bool
   $ (length arg1 == length arg2) && and (zipWith (curry eqvPair) arg1 arg2)
   where

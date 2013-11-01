@@ -53,7 +53,7 @@ showError (UnboundVar message varname)  = message ++ ":" ++ varname
 showError (BadSpecialForm message form) = message ++ ":" ++ show form
 showError (NotFunction message func)    = message ++ ":" ++ show func
 showError (NumArgs expected found)      = "Expected " ++ show expected ++ " args: found values " ++ unWordsList found
-showError (TypeMismatch expected found) = "Invalid trype: expected " ++ expected ++ ", found " ++ show found
+showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ ", found " ++ show found
 showError (TypeMismatches expected found) = "Invalid type: expected " ++ expected ++ ", found " ++ unWordsList found
 showError (Parser parseErr)             = "Parse error at " ++ show parseErr
 showError (Default message)             = message
@@ -69,7 +69,7 @@ showVal (List contents)        = "(" ++ unWordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unWordsList head ++ " . " ++ showVal tail ++ ")"
 showVal (Keyword kword)        = kword
 showVal (PrimitiveFunc _)      = "<PrimitiveFunc>"
-showVal (Func {params          = args, vararg = varargs, body = body, closure = env}) =
+showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
     "(lambda (" ++ unwords (map show args) ++ (case varargs of
         Nothing -> ""
         Just arg -> " . " ++ arg) ++ ") ...)"

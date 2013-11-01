@@ -102,7 +102,7 @@ parseExpr = parseAtom
         <|> try parseCharacter
         <|> parseQuoted
         <|> do char '('
-               x <- try parseList <|> parseDottedList
+               x <- (try parseList) <|> parseDottedList
                char ')'
                return x
 
