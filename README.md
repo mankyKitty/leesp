@@ -34,5 +34,14 @@ car, cdr, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whol
 
 ### UPDATES
 
+- 01/11/2013 Added support for loading text files as source files and the following file functions:
+-- ```open-input-file```
+-- ```open-output-file```
+-- ```close-input-port```
+-- ```close-output-port```
+-- ```read```
+-- ```write```
+-- ```read-contents```
+-- ```read-all```
 - 01/11/2013 Added the ability to create and store functions using ```define``` and ```lambda```.
 - 31/10/2013 Added persistent variables from scheme, namely: ```define``` and ```set!```.

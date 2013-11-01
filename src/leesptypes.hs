@@ -1,6 +1,7 @@
 module LeespTypes where
 
 import Data.IORef
+import System.IO (Handle)
 import Control.Monad.Error
 import Text.ParserCombinators.Parsec (ParseError)
 
@@ -14,6 +15,8 @@ data LispVal = Atom String
              | Keyword String
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
              | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}
+             | IOFunc ([LispVal] -> IOThrowsError LispVal)
+             | Port Handle
 
 data LispError = NumArgs Integer [LispVal]
          | TypeMismatch String LispVal
@@ -66,7 +69,9 @@ showVal (List contents)        = "(" ++ unWordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unWordsList head ++ " . " ++ showVal tail ++ ")"
 showVal (Keyword kword)        = kword
 showVal (PrimitiveFunc _)      = "<PrimitiveFunc>"
-showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
+showVal (Func {params          = args, vararg = varargs, body = body, closure = env}) =
     "(lambda (" ++ unwords (map show args) ++ (case varargs of
         Nothing -> ""
         Just arg -> " . " ++ arg) ++ ") ...)"
+showVal (Port _)               = "<IO port>"
+showVal (IOFunc _)             = "<IO primitive>"
