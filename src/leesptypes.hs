@@ -1,5 +1,6 @@
 module LeespTypes where
 
+import Data.IORef
 import Control.Monad.Error
 import Text.ParserCombinators.Parsec (ParseError)
 
@@ -24,6 +25,10 @@ data LispError = NumArgs Integer [LispVal]
          | Default String
 
 type ThrowsError = Either LispError
+
+type Env = IORef [(String, IORef LispVal)]
+
+type IOThrowsError = ErrorT LispError IO
 
 instance Show LispError where show = showError
 instance Show LispVal where show = showVal
@@ -60,3 +65,8 @@ showVal (Bool False)           = "#f"
 showVal (List contents)        = "(" ++ unWordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unWordsList head ++ " . " ++ showVal tail ++ ")"
 showVal (Keyword kword)        = kword
+showVal (PrimitiveFunc _)      = "<PrimitiveFunc>"
+showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
+    "(lambda (" ++ unwords (map show args) ++ (case varargs of
+        Nothing -> ""
+        Just arg -> " . " ++ arg) ++ ") ...)"

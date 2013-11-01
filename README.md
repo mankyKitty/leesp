@@ -31,3 +31,8 @@ Or alternately you can pass strings directly in for evaluation, however this pro
 ```
 
 car, cdr, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whole bunch of mathematical operations, comparison functions, atoms, and a handful of string functions: _string-ref_, _string-set!_, _string-length_.
+
+### UPDATES
+
+- 01/11/2013 Added the ability to create and store functions using ```define``` and ```lambda```.
+- 31/10/2013 Added persistent variables from scheme, namely: ```define``` and ```set!```.
