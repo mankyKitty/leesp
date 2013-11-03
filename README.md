@@ -30,11 +30,11 @@ Or alternately you can pass strings directly in for evaluation, however this pro
 ./leespOmg "(cons \"foo\" `(bar #\b)"
 ```
 
-car, cdr, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whole bunch of mathematical operations, comparison functions, atoms, and a handful of string functions: _string-ref_, _string-set!_, _string-length_.
+head, rest, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whole bunch of mathematical operations, comparison functions, atoms, and a handful of string functions: _string-ref_, _string-set!_, _string-length_.
 
 ### UPDATES
 
-- 01/11/2013 ADDED A STANDARD LIBRARY! OMG!! This was incredibly exciting. Now it really feels like a Lisp! (There is even closure support and everything. o.O). After pulling the cord on the REPL just run the following ```(load "leebs/stdleeb.leesp")``` or ```path/to/leeb/stdleeb.leesp``` and you should have everything in the stdleeb!
+- 01/11/2013 ADDED A STANDARD LIBRARY! OMG!! This was incredibly exciting. Now it really feels like a Lisp! (There is even closure support and everything. o.O). After pulling the cord on the REPL just run the following ```(import "leebs/stdleeb.leesp")``` or ```(import "path/to/leeb/stdleeb.leesp")``` and you should have everything in the stdleeb!
 - 01/11/2013 Added support for loading text files as source files and the following file functions:```open-input-file```, ```open-output-file```, ```close-input-port```, ```close-output-port```, ```read```, ```write```, ```read-contents```, ```read-all```.
 - 01/11/2013 Added the ability to create and store functions using ```define``` and ```lambda```.
 - 31/10/2013 Added persistent variables from scheme, namely: ```define``` and ```set!```.
