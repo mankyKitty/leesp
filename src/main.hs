@@ -38,14 +38,8 @@ evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
 
 until_ :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
-until_ pred prompt action = do
-  result <- prompt
-  unless (pred result) $ action result >> until_ pred prompt action
-
-{- This version runs a single input command from stdin
-runOne :: String -> IO ()
-runOne expr = primitiveBindings >>= flip evalAndPrint expr
--}
+until_ pred prompt action = do result <- prompt
+                               unless (pred result) $ action result >> until_ pred prompt action
 
 -- This version of runOne expects a file input to read from.
 runOne :: [String] -> IO ()
@@ -95,7 +89,7 @@ eval env (Atom id)                             = getVar env id
 -- Handled Quoting.
 eval env (List [Atom "quote", val])            = return val
 -- Load a file and eval the contents
-eval env (List [Atom "load", String filename]) =
+eval env (List [Atom "import", String filename]) =
   load filename >>= liftM last . mapM (eval env)
 -- Flow Control Functions.
 eval env (List [Atom "if", pred, conseq, alt]) =
@@ -181,8 +175,8 @@ primitives =
         ("eqv?", eqv),
         ("equal?", equal),
         -- List Functions
-        ("car", car),
-        ("cdr", cdr),
+        ("head", leespHead),
+        ("rest", leespRest),
         ("cons", cons),
         -- String Functions
         ("string=?", strBoolBinop (==)),
@@ -285,18 +279,18 @@ unpackBool :: LispVal -> ThrowsError Bool
 unpackBool (Bool b) = return b
 unpackBool notBool  = throwError $ TypeMismatch "boolean" notBool
 
-car :: [LispVal] -> ThrowsError LispVal
-car [List (x:xs)]         = return x
-car [DottedList (x:xs) _] = return x
-car [badArg]              = throwError $ TypeMismatch "pair" badArg
-car badArgList            = throwError $ NumArgs 1 badArgList
+leespHead :: [LispVal] -> ThrowsError LispVal
+leespHead [List (x:xs)]         = return x
+leespHead [DottedList (x:xs) _] = return x
+leespHead [badArg]              = throwError $ TypeMismatch "pair" badArg
+leespHead badArgList            = throwError $ NumArgs 1 badArgList
 
-cdr :: [LispVal] -> ThrowsError LispVal
-cdr [DottedList (_ : xs) x] = return $ DottedList xs x
-cdr [DottedList [xs] x]     = return x
-cdr [List (x:xs)]           = return $ List xs
-cdr [badArg]                = throwError $ TypeMismatch "pair" badArg
-cdr badArgList              = throwError $ NumArgs 1 badArgList
+leespRest :: [LispVal] -> ThrowsError LispVal
+leespRest [DottedList (_ : xs) x] = return $ DottedList xs x
+leespRest [DottedList [xs] x]     = return x
+leespRest [List (x:xs)]           = return $ List xs
+leespRest [badArg]                = throwError $ TypeMismatch "pair" badArg
+leespRest badArgList              = throwError $ NumArgs 1 badArgList
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x1, List []]            = return $ List [x1]

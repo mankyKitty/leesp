@@ -1,13 +1,25 @@
-(define (not x) (if x #f #t))
-(define (null? obj) (if (eqv? obj '()) #t #f))
+(define (not x)
+  (if x #f #t))
+
+(define (null? obj)
+  (if (eqv? obj '()) #t #f))
+
 (define (list . objs) objs)
+
 (define (id x) x)
-(define (curry func arg1) (lambda (arg) (func arg1 arg)))
+
+(define (curry func arg1)
+  (lambda (arg) (func arg1 arg)))
+
 (define zero? (curry = 0))
 (define positive? (curry < 0))
 (define negative? (curry > 0))
-(define (odd? num) (= (mod num 2) 1))
-(define (even? num) (= (mod num 2) 0))
+
+(define (odd? num)
+  (= (mod num 2) 1))
+
+(define (even? num)
+  (= (mod num 2) 0))
 
 (define (flip func)
   (lambda (arg1 arg2)
@@ -50,6 +62,9 @@
 (define (reverse lst)
   (fold (flip cons) '() lst))
 
+(define (init col)
+  (reverse (rest (reverse col))))
+
 (define (mem-helper pred op)
   (lambda (acc next)
     (if (and (not acc)
@@ -84,12 +99,12 @@
 (define (foldr func end lst)
   (if (null? lst)
     end
-    (func (car lst) (foldr func end (cdr lst)))))
+    (func (head lst) (foldr func end (rest lst)))))
 
 (define (foldl func accum lst)
   (if (null? lst)
     accum
-    (foldl func (func accum (car lst)) (cdr lst))))
+    (foldl func (func accum (head lst)) (rest lst))))
 
 (define (unfold func init pred)
   (if (pred init)

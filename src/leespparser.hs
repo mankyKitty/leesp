@@ -12,35 +12,32 @@ spaces :: Parser ()
 spaces = skipMany1 space
 
 parseCharacter :: Parser LispVal
-parseCharacter = do
-  try $ string "#\\"
-  value <- try (string "newline" <|> string "space")
-           <|> do { x <- anyChar; notFollowedBy alphaNum ; return [x] }
-  return $ Character $ case value of
-    "space" -> ' '
-    "newline" -> '\n'
-    otherwise -> head value
+parseCharacter = do try $ string "#\\"
+                    value <- try (string "newline" <|> string "space")
+                             <|> do { x <- anyChar; notFollowedBy alphaNum ; return [x] }
+                    return $ Character $ case value of
+                      "space" -> ' '
+                      "newline" -> '\n'
+                      otherwise -> head value
 
 escapeChars :: Parser Char
 escapeChars = do char '\\'
                  x <- oneOf "\\\"nrt"
                  return $ case x of
-                  '\\' -> x
-                  '"' -> x
-                  'n' -> '\n'
-                  'r' -> '\r'
-                  't' -> '\t'
+                   '\\' -> x
+                   '"' -> x
+                   'n' -> '\n'
+                   'r' -> '\r'
+                   't' -> '\t'
 
 parseBool :: Parser LispVal
-parseBool = do
-  char '#'
-  (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
+parseBool = do char '#'
+               (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
 
 parseKeyword :: Parser LispVal
-parseKeyword = do
-  char ':'
-  x <- many1 (letter <|> digit <|> symbol)
-  return $ Keyword $ ':':x
+parseKeyword = do char ':'
+                  x <- many1 (letter <|> digit <|> symbol)
+                  return $ Keyword $ ':' : x
 
 parseString :: Parser LispVal
 parseString = do char '"'
@@ -95,28 +92,26 @@ bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1) in
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
-        <|> parseString
-        <|> parseKeyword
-        <|> try parseNumber
-        <|> try parseBool
-        <|> try parseCharacter
-        <|> parseQuoted
-        <|> do char '('
-               x <- (try parseList) <|> parseDottedList
-               char ')'
-               return x
+            <|> parseString
+            <|> parseKeyword
+            <|> try parseNumber
+            <|> try parseBool
+            <|> try parseCharacter
+            <|> parseQuoted
+            <|> do char '('
+                   x <- (try parseList) <|> parseDottedList
+                   char ')'
+                   return x
 
 parseList :: Parser LispVal
 parseList = liftM List $ sepBy parseExpr spaces
 
 parseDottedList :: Parser LispVal
-parseDottedList = do
-  head <- endBy parseExpr spaces
-  tail <- char '.' >> spaces >> parseExpr
-  return $ DottedList head tail
+parseDottedList = do head <- endBy parseExpr spaces
+                     tail <- char '.' >> spaces >> parseExpr
+                     return $ DottedList head tail
 
 parseQuoted :: Parser LispVal
-parseQuoted = do
-  char '\''
-  x <- parseExpr
-  return $ List [Atom "quote", x]
+parseQuoted = do char '\''
+                 x <- parseExpr
+                 return $ List [Atom "quote", x]
