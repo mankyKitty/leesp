@@ -11,6 +11,11 @@ symbol = oneOf "!$%&|*+-/<=?>@^_~"
 spaces :: Parser ()
 spaces = skipMany1 space
 
+--comments :: Parser ()
+--comments = do
+--  try $ string ";;"
+--  skipMany1 anyChar
+
 parseCharacter :: Parser LispVal
 parseCharacter = do try $ string "#\\"
                     value <- try (string "newline" <|> string "space")
@@ -104,7 +109,7 @@ parseExpr = parseAtom
                    return x
 
 parseList :: Parser LispVal
-parseList = liftM List $ sepBy parseExpr spaces
+parseList = liftM List $ sepBy parseExpr spaces -- (comments <|> spaces)
 
 parseDottedList :: Parser LispVal
 parseDottedList = do head <- endBy parseExpr spaces
