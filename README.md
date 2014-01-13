@@ -11,12 +11,14 @@ Binary for OSX is available on the Releases page.
 
 Compiled using:```The Glorious Glasgow Haskell Compilation System, version 7.6.3``` on OSX 10.8.
 
-Other platforms should happily compile, but you'll have to manage that for yourselves (as I'm too lazy for VMs/Docker/Vagrant right now). The following compiler flags should suffice:
+Other platforms should happily compile, but you'll have to manage that for yourselves (as I'm too lazy for VMs/Docker/Vagrant right now). The following should build the executable in a cabal-dev environment to try to keep things nice and clean.
 
 ```
-ghc --make -package parsec -XExistentialQuantification -o leespOmg src/main.hs
+cabal-dev install
 ```
-You really don't need a build script for that do you?
+Complicated no?
+
+I've used the mtl package for ```Control.Monad.Error```.
 
 Once you have a happy binary, you can either use the REPL (YES IT HAS A REPL! Omg, you have no idea how exciting it was to build a language that has it's own REPL... seriously... no idea) *ahem* by just running the binary thus:
 
@@ -34,6 +36,7 @@ head, rest, and friends are there. As well as _cons_, _if_, _cond_, _case_, a wh
 
 ### UPDATES
 
+- 13/01/2014 Added project cabal file (finally, holy hell). Began support for comments, so far it's not going so well.
 - 01/11/2013 ADDED A STANDARD LIBRARY! OMG!! This was incredibly exciting. Now it really feels like a Lisp! (There is even closure support and everything. o.O). After pulling the cord on the REPL just run the following ```(import "leebs/stdleeb.leesp")``` or ```(import "path/to/leeb/stdleeb.leesp")``` and you should have everything in the stdleeb!
 - 01/11/2013 Added support for loading text files as source files and the following file functions:```open-input-file```, ```open-output-file```, ```close-input-port```, ```close-output-port```, ```read```, ```write```, ```read-contents```, ```read-all```.
 - 01/11/2013 Added the ability to create and store functions using ```define``` and ```lambda```.
