@@ -20,16 +20,16 @@ Complicated no?
 
 I've used the mtl package for ```Control.Monad.Error```.
 
-Once you have a happy binary, you can either use the REPL (YES IT HAS A REPL! Omg, you have no idea how exciting it was to build a language that has it's own REPL... seriously... no idea) *ahem* by just running the binary thus:
+Once you have a happy binary, you can either use the REPL (YES IT HAS A REPL! Omg, you have no idea how exciting it was to build a language that has it's own REPL... seriously... no idea) *\*ahem\** by just running the binary thus:
 
 ```
-./leespOmg
+./leesp
 ```
 
 Or alternately you can pass strings directly in for evaluation, however this process is a little weird because you have to escape everything like a champ and it becomes insufferable very quickly when dealing with strings:
 
 ```
-./leespOmg "(cons \"foo\" `(bar #\b)"
+./leesp "(cons \"foo\" `(bar #\b))"
 ```
 
 head, rest, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whole bunch of mathematical operations, comparison functions, atoms, and a handful of string functions: _string-ref_, _string-set!_, _string-length_.
