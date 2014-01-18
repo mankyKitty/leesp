@@ -20,7 +20,7 @@ Complicated no?
 
 I've used the mtl package for ```Control.Monad.Error```.
 
-Once you have a happy binary, you can either use the REPL (YES IT HAS A REPL! Omg, you have no idea how exciting it was to build a language that has it's own REPL... seriously... no idea) *\*ahem\** by just running the binary thus:
+Once you have a happy binary, you can either use the REPL (YES IT HAS A REPL! Omg, you have no idea how exciting it was to build a language that has it's own REPL... seriously... no idea) _\*ahem\*_ by just running the binary thus:
 
 ```
 ./leesp
