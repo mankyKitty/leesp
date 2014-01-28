@@ -32,10 +32,28 @@ Or alternately you can pass strings directly in for evaluation, however this pro
 ./leesp "(cons \"foo\" `(bar #\b))"
 ```
 
-head, rest, and friends are there. As well as _cons_, _if_, _cond_, _case_, a whole bunch of mathematical operations, comparison functions, atoms, and a handful of string functions: _string-ref_, _string-set!_, _string-length_.
+head, rest, and friends are there. As well as _cons_, _if_, _cond_,
+_case_, a whole bunch of mathematical operations, comparison
+functions, atoms, and a handful of string functions: _string-ref_,
+_string-set!_, _string-length_.
+
+You are also able to use the traditional Lisp comment styles of:
+```
+;; Inline Comments
+#| and block comments ! |#
+#|
+even
+multiline
+comments :D
+|#
+
+;; No nesting support though. :(
+```
 
 ### UPDATES
 
+- 29/01/2014 WE HAVE COMMENTS!!! Woo! Added support for inline and
+  block comments. No support for nested block comments yet, don't be greedy.
 - 13/01/2014 Added project cabal file (finally, holy hell). Began support for comments, so far it's not going so well.
 - 01/11/2013 ADDED A STANDARD LIBRARY! OMG!! This was incredibly exciting. Now it really feels like a Lisp! (There is even closure support and everything. o.O). After pulling the cord on the REPL just run the following ```(import "leebs/stdleeb.leesp")``` or ```(import "path/to/leeb/stdleeb.leesp")``` and you should have everything in the stdleeb!
 - 01/11/2013 Added support for loading text files as source files and the following file functions:```open-input-file```, ```open-output-file```, ```close-input-port```, ```close-output-port```, ```read```, ```write```, ```read-contents```, ```read-all```.

@@ -11,29 +11,37 @@ symbol = oneOf "!$%&|*+-/<=?>@^_~"
 spaces :: Parser ()
 spaces = skipMany1 space
 
---comments :: Parser ()
---comments = do
---  try $ string ";;"
---  skipMany1 anyChar
+comments :: Parser ()
+comments = skipMany1 (blockComment <|> inlineComment)
+
+inlineComment :: Parser [Char]
+inlineComment = do try $ string ";;"
+                   x <- manyTill anyChar (try newline)
+                   return x
+
+blockComment :: Parser [Char]
+blockComment = do string "#|"
+                  x <- manyTill anyChar (try (string "|#"))
+                  return x
 
 parseCharacter :: Parser LispVal
 parseCharacter = do try $ string "#\\"
                     value <- try (string "newline" <|> string "space")
                              <|> do { x <- anyChar; notFollowedBy alphaNum ; return [x] }
                     return $ Character $ case value of
-                      "space" -> ' '
+                      "space"   -> ' '
                       "newline" -> '\n'
-                      otherwise -> head value
+                      _         -> head value
 
 escapeChars :: Parser Char
 escapeChars = do char '\\'
                  x <- oneOf "\\\"nrt"
                  return $ case x of
                    '\\' -> x
-                   '"' -> x
-                   'n' -> '\n'
-                   'r' -> '\r'
-                   't' -> '\t'
+                   '"'  -> x
+                   'n'  -> '\n'
+                   'r'  -> '\r'
+                   't'  -> '\t'
 
 parseBool :: Parser LispVal
 parseBool = do char '#'
@@ -57,7 +65,7 @@ parseAtom = do first <- letter <|> symbol
                return $ case atom of
                           "#t" -> Bool True
                           "#f" -> Bool False
-                          otherwise -> Atom atom
+                          _    -> Atom atom
 
 parseNumber :: Parser LispVal
 parseNumber = parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
@@ -85,31 +93,37 @@ parseBin = do try $ string "#b"
               x <- many1 (oneOf "10")
               return $ Number (bin2dig x)
 
+--oct2dig :: (Eq a, Num a) => String -> a
 oct2dig x = fst $ readOct x !! 0
 
+--hex2dig :: (Eq a, Num a) => String -> a
 hex2dig x = fst $ readHex x !! 0
 
+--bin2dig :: [Char] -> Integer
 bin2dig = bin2dig' 0
 
+--bin2dig' :: Num a => a -> [Char] -> a
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1) in
                          bin2dig' old xs
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom
-            <|> parseString
-            <|> parseKeyword
-            <|> try parseNumber
-            <|> try parseBool
-            <|> try parseCharacter
-            <|> parseQuoted
-            <|> do char '('
-                   x <- (try parseList) <|> parseDottedList
-                   char ')'
-                   return x
-
+parseExpr = do
+  skipMany (comments <|> spaces)
+  parseAtom
+    <|> parseString
+    <|> parseKeyword
+    <|> try parseNumber
+    <|> try parseBool
+    <|> try parseCharacter
+    <|> parseQuoted
+    <|> do char '('
+           x <- (try parseList) <|> parseDottedList
+           char ')'
+           return x
+  
 parseList :: Parser LispVal
-parseList = liftM List $ sepBy parseExpr spaces -- (comments <|> spaces)
+parseList = liftM List $ sepBy parseExpr spaces
 
 parseDottedList :: Parser LispVal
 parseDottedList = do head <- endBy parseExpr spaces

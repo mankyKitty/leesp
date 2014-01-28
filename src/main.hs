@@ -46,10 +46,20 @@ runOne :: [String] -> IO ()
 runOne args = do
   env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
   (runIOThrows $ liftM show
-    $ eval env (List [Atom "load", String (head args)])) >>= hPutStrLn stderr
+    $ eval env (List [Atom "import", String (head args)])) >>= hPutStrLn stderr
 
 runRepl :: IO ()
-runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Leesp >> ") . evalAndPrint
+runRepl = do
+  displayReplBanner
+  primitiveBindings >>= until_ (== "quit") (readPrompt "Leesp >> ") . evalAndPrint
+
+displayReplBanner :: IO ()
+displayReplBanner = do
+  let bannerLines = ["Welcome to the Leesp REPL!",
+                     "You can import leebs by using the (import \"path/to/your/leeb\")",
+                     "To quit just type in 'quit'.",
+                     "Multiline expressions are not yet supported, sorry. :("] in
+    mapM_ (putStrLn) bannerLines
 
 -- END REPL FUNS
 
@@ -62,16 +72,16 @@ readExpr :: String -> ThrowsError LispVal
 readExpr = readOrThrow parseExpr
 
 readExprList :: String -> ThrowsError [LispVal]
-readExprList = readOrThrow (endBy parseExpr spaces)
+readExprList = readOrThrow (endBy parseExpr (comments <|> spaces))
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
-apply (Func params varargs body closure) args =
-  if num params /= num args && varargs == Nothing
-    then throwError $ NumArgs (num params) args
-    else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+apply (Func parms varargs body closure) args =
+  if num parms /= num args && varargs == Nothing
+    then throwError $ NumArgs (num parms) args
+    else (liftIO $ bindVars closure $ zip parms args) >>= bindVarArgs varargs >>= evalBody
   where
-    remainingArgs = drop (length params) args
+    remainingArgs = drop (length parms) args
     num = toInteger . length
     evalBody env = liftM last $ mapM (eval env) body
     bindVarArgs arg env = case arg of
@@ -80,14 +90,14 @@ apply (Func params varargs body closure) args =
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 -- Display Evaluated Values.
-eval env val@(String _)                        = return val
-eval env val@(Number _)                        = return val
-eval env val@(Bool _)                          = return val
-eval env val@(Character _)                     = return val
-eval env val@(Keyword _)                       = return val
-eval env (Atom id)                             = getVar env id
+eval env val@(String _)               = return val
+eval env val@(Number _)               = return val
+eval env val@(Bool _)                 = return val
+eval env val@(Character _)            = return val
+eval env val@(Keyword _)              = return val
+eval env (Atom id)                    = getVar env id
 -- Handled Quoting.
-eval env (List [Atom "quote", val])            = return val
+eval env (List [Atom "quote", val])   = return val
 -- Load a file and eval the contents
 eval env (List [Atom "import", String filename]) =
   load filename >>= liftM last . mapM (eval env)
@@ -102,14 +112,14 @@ eval env (List [Atom "set!", Atom var, form]) =
   eval env form >>= setVar env var
 eval env (List [Atom "define", Atom var, form]) =
   eval env form >>= defineVar env var
-eval env (List (Atom "define" : List (Atom var : params) : body)) =
-  makeNormalFunc env params body >>= defineVar env var
-eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
-  makeVarargs varargs env params body >>= defineVar env var
-eval env (List (Atom "lambda" : List params : body)) =
-  makeNormalFunc env params body
-eval env (List (Atom "lambda" : DottedList params varargs : body)) =
-  makeVarargs varargs env params body
+eval env (List (Atom "define" : List (Atom var : parms) : body)) =
+  makeNormalFunc env parms body >>= defineVar env var
+eval env (List (Atom "define" : DottedList (Atom var : parms) varargs : body)) =
+  makeVarargs varargs env parms body >>= defineVar env var
+eval env (List (Atom "lambda" : List parms : body)) =
+  makeNormalFunc env parms body
+eval env (List (Atom "lambda" : DottedList parms varargs : body)) =
+  makeVarargs varargs env parms body
 eval env (List (Atom "lambda" : varargs@(Atom _) : body)) =
   makeVarargs varargs env [] body
 eval env (List (function : args)) = do
@@ -155,40 +165,40 @@ myCondFun env (pred:conseq:rest) = do
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =
         -- Basic Maths Functions
-        [("+", numericBinop (+)),
-        ("-", numericBinop (-)),
-        ("*", numericBinop (*)),
-        ("/", numericBinop div),
-        ("mod", numericBinop mod),
-        ("quotient", numericBinop quot),
-        ("remainder", numericBinop rem),
+        [ ("+", numericBinop (+)),
+          ("-", numericBinop (-)),
+          ("*", numericBinop (*)),
+          ("/", numericBinop div),
+          ("mod", numericBinop mod),
+          ("quotient", numericBinop quot),
+          ("remainder", numericBinop rem),
         -- Comparison Functions
-        ("=", numBoolBinop (==)),
-        ("<", numBoolBinop (<)),
-        (">", numBoolBinop (>)),
-        ("/=", numBoolBinop (/=)),
-        (">=", numBoolBinop (>=)),
-        ("<=", numBoolBinop (<=)),
-        ("&&", boolBoolBinop (&&)),
-        ("||", boolBoolBinop (||)),
-        ("eq?", eqv),
-        ("eqv?", eqv),
-        ("equal?", equal),
+          ("=", numBoolBinop (==)),
+          ("<", numBoolBinop (<)),
+          (">", numBoolBinop (>)),
+          ("/=", numBoolBinop (/=)),
+          (">=", numBoolBinop (>=)),
+          ("<=", numBoolBinop (<=)),
+          ("&&", boolBoolBinop (&&)),
+          ("||", boolBoolBinop (||)),
+          ("eq?", eqv),
+          ("eqv?", eqv),
+          ("equal?", equal),
         -- List Functions
-        ("head", leespHead),
-        ("rest", leespRest),
-        ("cons", cons),
+          ("head", leespHead),
+          ("rest", leespRest),
+          ("cons", cons),
         -- String Functions
-        ("string=?", strBoolBinop (==)),
-        ("string?", strBoolBinop (>)),
-        ("string<=?", strBoolBinop (<=)),
-        ("string>=?", strBoolBinop (>=)),
-        ("string", makeStringFromArgs),
-        ("string-length", stringLength),
-        ("string-ref", stringRefFn),
-        ("make-string", makeStringN),
-        ("string-insert!", stringinsertFn),
-        ("substring", subStringFn)]
+          ("string=?", strBoolBinop (==)),
+          ("string?", strBoolBinop (>)),
+          ("string<=?", strBoolBinop (<=)),
+          ("string>=?", strBoolBinop (>=)),
+          ("string", makeStringFromArgs),
+          ("string-length", stringLength),
+          ("string-ref", stringRefFn),
+          ("make-string", makeStringN),
+          ("string-insert!", stringinsertFn),
+          ("substring", subStringFn)]
 
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives = [("apply", applyProc),
@@ -252,7 +262,7 @@ makeStringN badArgList              = throwError $ NumArgs 1 badArgList
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
-numericBinop op params = liftM (Number . foldl1 op) (mapM unpackNum params)
+numericBinop op parms = liftM (Number . foldl1 op) (mapM unpackNum parms)
 
 unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
@@ -336,7 +346,7 @@ nullEnv :: IO Env
 nullEnv = newIORef []
 
 makeFunc :: Monad m => Maybe String -> Env -> [LispVal] -> [LispVal] -> m LispVal
-makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
+makeFunc varargs env parms body = return $ Func (map showVal parms) varargs body env
 
 makeNormalFunc :: Env -> [LispVal] -> [LispVal] -> ErrorT LispError IO LispVal
 makeNormalFunc = makeFunc Nothing
