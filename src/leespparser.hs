@@ -21,7 +21,7 @@ inlineComment = do try $ string ";;"
 
 blockComment :: Parser [Char]
 blockComment = do string "#|"
-                  x <- manyTill anyChar (try (string "|#"))
+                  x <- manyTill (anyChar <|> newline) (try (string "|#"))
                   return x
 
 parseCharacter :: Parser LispVal
@@ -93,16 +93,16 @@ parseBin = do try $ string "#b"
               x <- many1 (oneOf "10")
               return $ Number (bin2dig x)
 
---oct2dig :: (Eq a, Num a) => String -> a
+oct2dig :: (Eq a, Num a) => String -> a
 oct2dig x = fst $ readOct x !! 0
 
---hex2dig :: (Eq a, Num a) => String -> a
+hex2dig :: (Eq a, Num a) => String -> a
 hex2dig x = fst $ readHex x !! 0
 
---bin2dig :: [Char] -> Integer
+bin2dig :: [Char] -> Integer
 bin2dig = bin2dig' 0
 
---bin2dig' :: Num a => a -> [Char] -> a
+bin2dig' :: Num a => a -> [Char] -> a
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1) in
                          bin2dig' old xs
