@@ -1,115 +1,160 @@
+#| Leesp Standard Library !
+
+This is the standard library for the Leesp language. It provides the
+basic functionality that is included with the language, however for
+the time being it must be manually imported into every program as it
+is only included when invoking a script directly on the command line
+
+|#
+
 (define (not x)
-  (if x #f #t))
+    ;; Flip a boolean value or result.
+    (if x #f #t))
 
 (define (null? obj)
-  (if (eqv? obj '()) #t #f))
+    ;; Check if the given arg is null
+    (if (eqv? obj '()) #t #f))
 
+;; Produce a dotten list from the given arg.
 (define (list . objs) objs)
 
+;; Basic identity function
 (define (id x) x)
 
 (define (curry func arg1)
-  (lambda (arg) (func arg1 arg)))
+    ;; Create a partially applied function from the function itself
+    ;; and its first argument.
+    (lambda (arg) (func arg1 arg)))
 
+;; Basic boolean functions
 (define zero? (curry = 0))
 (define positive? (curry < 0))
 (define negative? (curry > 0))
 
 (define (odd? num)
-  (= (mod num 2) 1))
+    ;; Returns true if the argument is numeric and odd.
+    (= (mod num 2) 1))
 
 (define (even? num)
-  (= (mod num 2) 0))
+    ;; Returns true if the argument is numeric and even.
+    (= (mod num 2) 0))
 
 (define (flip func)
-  (lambda (arg1 arg2)
-    (func arg2 arg1)))
+    ;; Take a function that takes two arguments and return the same
+    ;; function with the order of the arguments swapped around.
+    (lambda (arg1 arg2)
+      (func arg2 arg1)))
 
 (define (compose f g)
-  (lambda (arg)
-    (f (g arg))))
+    ;; Takes two functions and returns a function that returns the
+    ;; result of applying those functions to the final argument.
+    (lambda (arg)
+      (f (g arg))))
 
 (define (sum . lst)
-  (fold + 0 lst))
+    ;; Produce the sum of a list. Assuming numeric list.
+    (fold + 0 lst))
 
 (define (product . lst)
-  (fold * 1 lst))
+    ;; Produce the product of a list. Assuming numeric list.
+    (fold * 1 lst))
 
 (define (and . lst)
-  (fold && #t lst))
+    ;; Produce the boolean result of applying && to a list of expressions.
+    (fold && #t lst))
 
 (define (or . lst)
-  (fold || #f lst))
+    ;; Produce the boolean result of applying || to a list of expressions.
+    (fold || #f lst))
 
 (define (max first . num-list)
-  (fold
-    (lambda (old new) (if (> old new) old new))
-    first
-    num-list))
+    ;; Return the largest value of a list.
+    (fold
+     (lambda (old new) (if (> old new) old new))
+     first
+     num-list))
 
 (define (min first . num-list)
-  (fold
-    (lambda (old new) (if (< old new) old new))
-    first
-    num-list))
+    ;; Return the smallest value of a list.
+    (fold
+     (lambda (old new) (if (< old new) old new))
+     first
+     num-list))
 
 (define (length lst)
-  (fold
-    (lambda (x y) (+ x 1))
-    0
-    lst))
+    ;; Return the length of a list.
+    (fold
+     (lambda (x y) (+ x 1))
+     0
+     lst))
 
 (define (reverse lst)
+    ;; Return the provided list in reverse order.
   (fold (flip cons) '() lst))
 
 (define (init col)
-  (reverse (rest (reverse col))))
+    ;; Return the list minus the head.
+    (reverse (rest (reverse col))))
 
 (define (mem-helper pred op)
-  (lambda (acc next)
-    (if (and (not acc)
-      (pred (op next)))
-    next
-    acc)))
+    ;; Returns an accumulator function for use with the memq/memv functionality.
+    (lambda (acc next)
+      (if (and (not acc)
+               (pred (op next)))
+          next
+          acc)))
 
 (define (memq obj lst)
-  (fold (mem-helper (curry eq? obj) id) #f lst))
+    ;; Determines if all elements of a list are equal to the first argument.
+    (fold (mem-helper (curry eq? obj) id) #f lst))
 
 (define (memv obj lst)
-  (fold (mem-helper (curry eqv? obj) id) #f lst))
+    ;; Determines if all elements of a list are equal to the first argument.
+    (fold (mem-helper (curry eqv? obj) id) #f lst))
 
 (define (member obj lst)
-  (fold (mem-helper (curry equal? obj) id) #f lst))
+    ;; Determines if all elements of a list are equal to the first argument.
+    (fold (mem-helper (curry equal? obj) id) #f lst))
 
 (define (assq obj alist)
-  (fold (mem-helper (curry eqv? obj) car) #f alist))
+    (fold (mem-helper (curry eqv? obj) car) #f alist))
 
 (define (assv obj alist)
-  (fold (mem-helper (curry eqv? obj) car) #f alist))
+    (fold (mem-helper (curry eqv? obj) car) #f alist))
 
 (define (assoc obj alist)
-  (fold (mem-helper (curry equal? obj) car) #f alist))
+    (fold (mem-helper (curry equal? obj) car) #f alist))
 
 (define (map func lst)
-  (foldr (lambda (x y) (cons (func x) y)) '() lst))
+    ;; Maps a function over every element in the list. The function
+    ;; must require only one argument.
+    (foldr (lambda (x y) (cons (func x) y)) '() lst))
 
 (define (filter pred lst)
-  (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
+    ;; Remove the elements of a list which do not satisfy the
+    ;; predicate function or condition.
+    (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
 
 (define (foldr func end lst)
-  (if (null? lst)
-    end
-    (func (head lst) (foldr func end (rest lst)))))
+    ;; Reduce a list using an accumulator function to produce a final
+    ;; result. This function folds from end of the list towards the start.
+    (if (null? lst)
+        end
+        (func (head lst) (foldr func end (rest lst)))))
 
 (define (foldl func accum lst)
-  (if (null? lst)
-    accum
-    (foldl func (func accum (head lst)) (rest lst))))
-
-(define (unfold func init pred)
-  (if (pred init)
-    (cons init '())
-    (cons init (unfold func (func init) pred))))
+    ;; Reduce a list using an accumulator function to produce a final
+    ;; result. This function folds from start of the list towards the end    
+    (if (null? lst)
+        accum
+        (foldl func (func accum (head lst)) (rest lst))))
 
 (define fold foldl)
 (define reduce fold)
+
+(define (unfold func init pred)
+    ;; From an initial value, and the a predicate condition, create a
+    ;; list of elements.
+    (if (pred init)
+        (cons init '())
+        (cons init (unfold func (func init) pred))))
