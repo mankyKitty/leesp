@@ -12,7 +12,7 @@ import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
 -- Required for managing state
 import Data.IORef
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, isNothing)
 
 import LeespTypes
 import LeespParser
@@ -22,7 +22,7 @@ main = do
   args <- getArgs
   if null args
     then runRepl
-    else runOne $ args
+    else runOne args
 
 -- REPL FUNS
 flushStr :: String -> IO ()
@@ -32,7 +32,7 @@ readPrompt :: String -> IO String
 readPrompt prompt = flushStr prompt >> getLine
 
 evalString :: Env -> String -> IO String
-evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
+evalString env expr = runIOThrows $ liftM show $ liftThrows (readExpr expr) >>= eval env
 
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
@@ -45,8 +45,7 @@ until_ pred prompt action = do result <- prompt
 runOne :: [String] -> IO ()
 runOne args = do
   env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
-  (runIOThrows $ liftM show
-    $ eval env (List [Atom "import", String (head args)])) >>= hPutStrLn stderr
+  runIOThrows (liftM show (eval env (List [Atom "import", String (head args)]))) >>= hPutStrLn stderr
 
 runRepl :: IO ()
 runRepl = do
@@ -54,12 +53,12 @@ runRepl = do
   primitiveBindings >>= until_ (== "quit") (readPrompt "Leesp >> ") . evalAndPrint
 
 displayReplBanner :: IO ()
-displayReplBanner = do
+displayReplBanner =
   let bannerLines = ["Welcome to the Leesp REPL!",
                      "You can import leebs by using the (import \"path/to/your/leeb\")",
                      "To quit just type in 'quit'.",
-                     "Multiline expressions are not yet supported, sorry. :("] in
-    mapM_ (putStrLn) bannerLines
+                     "Multiline expressions are not yet supported, sorry. :("]
+  in putStrLn `mapM_` bannerLines
 
 -- END REPL FUNS
 
@@ -77,15 +76,15 @@ readExprList = readOrThrow (endBy parseExpr (comments <|> spaces))
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
 apply (Func parms varargs body closure) args =
-  if num parms /= num args && varargs == Nothing
+  if num parms /= num args && isNothing varargs
     then throwError $ NumArgs (num parms) args
-    else (liftIO $ bindVars closure $ zip parms args) >>= bindVarArgs varargs >>= evalBody
+    else liftIO (bindVars closure $ zip parms args) >>= bindVarArgs varargs >>= evalBody
   where
     remainingArgs = drop (length parms) args
     num = toInteger . length
     evalBody env = liftM last $ mapM (eval env) body
     bindVarArgs arg env = case arg of
-      Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
+      Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
@@ -336,7 +335,8 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
 
 equal :: [LispVal] -> ThrowsError LispVal
 equal [arg1, arg2] = do
-  primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+  primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2)
+                     [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
   eqvEquals <- eqv [arg1, arg2]
   return $ Bool (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
@@ -400,7 +400,7 @@ bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
       return (var, ref)
 
 primitiveBindings :: IO Env
-primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc) ioPrimitives
+primitiveBindings = nullEnv >>= flip bindVars (map (makeFunc IOFunc) ioPrimitives
   ++ map (makeFunc PrimitiveFunc) primitives)
   where
     makeFunc constructor (var, func) = (var, constructor func)
@@ -414,21 +414,21 @@ makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
 
 closePort :: [LispVal] -> IOThrowsError LispVal
-closePort [Port port] = liftIO $ hClose port >> (return $ Bool True)
+closePort [Port port] = liftIO (hClose port) >> return (Bool True)
 
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = readProc [Port stdin]
-readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
+readProc [Port port] = liftIO (hGetLine port) >>= liftThrows . readExpr
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
 writeProc [obj] = writeProc [obj, Port stdout]
-writeProc [obj, Port port] = liftIO $ hPrint port obj >> (return $ Bool True)
+writeProc [obj, Port port] = liftIO $ hPrint port obj >> return (Bool True)
 
 readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename
 
 load :: String -> IOThrowsError [LispVal]
-load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
+load filename = liftIO (readFile filename) >>= liftThrows . readExprList
 
 readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = liftM List $ load filename

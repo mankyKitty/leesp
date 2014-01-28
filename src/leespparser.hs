@@ -14,15 +14,11 @@ spaces = skipMany1 space
 comments :: Parser ()
 comments = skipMany1 (blockComment <|> inlineComment)
 
-inlineComment :: Parser [Char]
-inlineComment = do try $ string ";;"
-                   x <- manyTill anyChar (try newline)
-                   return x
+inlineComment :: Parser String
+inlineComment = try $ string ";;" >> manyTill anyChar (try newline)
 
-blockComment :: Parser [Char]
-blockComment = do string "#|"
-                  x <- manyTill (anyChar <|> newline) (try (string "|#"))
-                  return x
+blockComment :: Parser String
+blockComment = try $ string "#|" >> manyTill (anyChar <|> newline) (try (string "|#"))
 
 parseCharacter :: Parser LispVal
 parseCharacter = do try $ string "#\\"
@@ -94,15 +90,15 @@ parseBin = do try $ string "#b"
               return $ Number (bin2dig x)
 
 oct2dig :: (Eq a, Num a) => String -> a
-oct2dig x = fst $ readOct x !! 0
+oct2dig x = (fst . head) $ readOct x
 
 hex2dig :: (Eq a, Num a) => String -> a
-hex2dig x = fst $ readHex x !! 0
+hex2dig x = (fst . head) $ readHex x
 
-bin2dig :: [Char] -> Integer
+bin2dig :: String -> Integer
 bin2dig = bin2dig' 0
 
-bin2dig' :: Num a => a -> [Char] -> a
+bin2dig' :: Num a => a -> String -> a
 bin2dig' digint "" = digint
 bin2dig' digint (x:xs) = let old = 2 * digint + (if x == '0' then 0 else 1) in
                          bin2dig' old xs
@@ -118,7 +114,7 @@ parseExpr = do
     <|> try parseCharacter
     <|> parseQuoted
     <|> do char '('
-           x <- (try parseList) <|> parseDottedList
+           x <- try parseList <|> parseDottedList
            char ')'
            return x
   
