@@ -69,5 +69,5 @@ comments :D
 * add load process for REPL to include files (like stdleeb)
 * make it emit compilable code (ooooooo!)
 * clean up the core source
-* add support for comments. This is inexplicably annoying.
+* ~~add support for comments. This is inexplicably annoying.~~
 * ~~add standard library~~
