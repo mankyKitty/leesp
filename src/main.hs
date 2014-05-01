@@ -6,13 +6,17 @@ import qualified Data.List as L
 import System.IO hiding (try)
 -- For parsing/eval
 import Control.Monad
+import Control.Monad.Identity
+import Control.Monad.Reader
+import Control.Monad.State
 import Control.Monad.Error
 -- Required for general operations.
 import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
 -- Required for managing state
 import Data.IORef
-import Data.Maybe (isJust, isNothing)
+import qualified Data.Map as Map
+import Data.Maybe (isJust, isNothing, fromJust)
 
 import LeespTypes
 import LeespParser
@@ -86,6 +90,65 @@ apply (Func parms varargs body closure) args =
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
+
+bindVars' :: [String] -> [LispVal] -> Env' -> Env'
+bindVars parms args closure = map (\(k,v) -> Map.insert k v closure) . zip parms args
+
+eval' :: LispVal -> Eval LispVal
+eval' val@(String _)               = return val
+eval' val@(Number _)               = return val
+eval' val@(Bool _)                 = return val
+eval' val@(Character _)            = return val
+eval' val@(Keyword _)              = return val
+eval' (Atom id) = do env <- ask
+                     case Map.lookup id env of
+                       Nothing -> throwError $ UnboundVar "unbound var" id
+                       Just val -> return val
+-- Handled Quoting.
+eval' (List [Atom "quote", val])   = return val
+-- Bind a variable -- is for mutable variables, leaving out for now! :)
+-- eval' (List [Atom "set!", Atom var, form]) = eval' form >>= setVar' var
+-- Flow Control Functions
+eval' (List [Atom "if", pred, conseq, alt]) = evIfFun pred conseq alt
+eval' (List (Atom "cond" : items)) = evCondFun items
+eval' (List (Atom "case" : sel : choices)) = eval' sel >>= evCaseFun choices
+-- Define a variable
+eval' (List [Atom "define", Atom var, form]) = eval' form >>= defineVar' var
+-- Yer done gone f**ked up.
+eval' badForm = throwError $ BadSpecialForm "Unrecognised special form" badForm
+
+evIfFun :: LispVal -> LispVal -> LispVal -> Eval LispVal
+evIfFun pred conseq alt =
+  do p <- eval' pred
+     case p of
+       Bool True -> eval' conseq
+       Bool False -> eval' alt
+       _ -> throwError $ TypeMismatch "Non boolean result in 'if'" p
+
+evCondFun :: [LispVal] -> Eval LispVal
+evCondFun [] = throwError $ BadSpecialForm "Non-exhaustive patterns in" $ String "cond"
+evCondFun [Atom "otherwise", conseq] = eval' conseq
+evCondFun (pred:conseq:rest) = do
+  result <- eval' pred
+  case result of
+    Bool True  -> eval' conseq
+    Bool False -> evCondFun rest
+    otherwise  -> throwError $ TypeMismatch "boolean" pred
+    
+evCaseFun :: [LispVal] -> LispVal -> Eval LispVal
+evCaseFun [] selector = throwError $ BadSpecialForm "Non-exhaustive patterns in " selector
+evCaseFun (comparator:conseq:rest) selector = do
+  choice <- if caseHasAtom comparator
+            then return comparator
+            else eval' comparator
+  case eqv [selector,choice] of
+    Left _ -> throwError $ BadSpecialForm "Unknown Pattern in Case form " selector
+    Right v -> case v of 
+      Bool True -> eval' conseq
+      Bool False -> evCaseFun rest selector
+  where
+    caseHasAtom (Atom _) = True
+    caseHasAtom _        = False
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 -- Display Evaluated Values.
@@ -363,32 +426,41 @@ runIOThrows action = liftM extractValue (runErrorT (trapError action))
 
 isBound :: Env -> String -> IO Bool
 -- isBound envRef var = readIORef envRef >>= return . isJust . lookup var
-isBound envRef var = liftM (isJust . lookup var) (readIORef envRef)
+isBound env var = liftM (isJust . lookup var) (readIORef env)
 
 getVar :: Env -> String -> IOThrowsError LispVal
-getVar envRef var = do
-  env <- liftIO $ readIORef envRef
+getVar env var = do
+  env' <- liftIO $ readIORef env
   maybe (throwError $ UnboundVar "Getting an unbound variable" var)
         (liftIO . readIORef)
-        (lookup var env)
+        (lookup var env')
 
 setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
-setVar envRef var value = do
-  env <- liftIO $ readIORef envRef
+setVar env var value = do
+  env' <- liftIO $ readIORef env
   maybe (throwError $ UnboundVar "Setting an unbound variable" var)
         (liftIO . (`writeIORef` value))
-        (lookup var env)
+        (lookup var env')
   return value
 
+setVar' :: String -> LispVal -> Eval LispVal
+setVar' var value = do env <- ask
+                       case Map.lookup var env of
+                         Nothing -> defineVar' var value
+                         Just _ -> throwError $ BoundVar "Variable already bound" value
+
+defineVar' :: String -> LispVal -> Eval LispVal
+defineVar' var value = modify (Map.insert var value) >> return value
+
 defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
-defineVar envRef var value = do
-  alreadyDefined <- liftIO $ isBound envRef var
+defineVar env var value = do
+  alreadyDefined <- liftIO $ isBound env var
   if alreadyDefined
-    then setVar envRef var value >> return value
+    then setVar env var value >> return value
     else liftIO $ do
       valueRef <- newIORef value
-      env <- readIORef envRef
-      writeIORef envRef ((var, valueRef) : env)
+      env' <- readIORef env
+      writeIORef env ((var, valueRef) : env')
       return value
 
 bindVars :: Env -> [(String, LispVal)] -> IO Env

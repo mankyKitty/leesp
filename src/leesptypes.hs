@@ -1,8 +1,19 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module LeespTypes where
 
+import Prelude hiding (head,tail)
+
 import Data.IORef
+import qualified Data.Map as Map
+
 import System.IO (Handle)
+
+import Control.Monad.Identity
 import Control.Monad.Error
+import Control.Monad.Reader
+import Control.Monad.State
+
 import Text.ParserCombinators.Parsec (ParseError)
 
 data LispVal = Atom String
@@ -14,7 +25,7 @@ data LispVal = Atom String
              | Character Char
              | Keyword String
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
-             | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: Env}
+             | Func {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], closure :: Env}
              | IOFunc ([LispVal] -> IOThrowsError LispVal)
              | Port Handle
 
@@ -25,11 +36,19 @@ data LispError = NumArgs Integer [LispVal]
          | BadSpecialForm String LispVal
          | NotFunction String String
          | UnboundVar String String
+         | BoundVar String LispVal
          | Default String
 
 type ThrowsError = Either LispError
 
 type Env = IORef [(String, IORef LispVal)]
+
+type Env' = Map.Map String LispVal
+
+type Eval a = ReaderT Env' (ErrorT LispError (StateT Env' Identity)) a
+
+runEval :: Env' -> Env' -> Eval a -> (Either LispError a,Env')
+runEval env st ev = runIdentity (runStateT (runErrorT (runReaderT ev env)) st)
 
 type IOThrowsError = ErrorT LispError IO
 
@@ -40,10 +59,12 @@ instance Error LispError where
   noMsg = Default "An error has occurred"
   strMsg = Default
 
+trapError :: (MonadError e m, Show e) => m String -> m String
 trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
+extractValue (Left _) = error "Extract Value shouldn't be here"
 
 unWordsList :: [LispVal] -> String
 unWordsList = unwords . map showVal
@@ -69,7 +90,7 @@ showVal (List contents)        = "(" ++ unWordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unWordsList head ++ " . " ++ showVal tail ++ ")"
 showVal (Keyword kword)        = kword
 showVal (PrimitiveFunc _)      = "<PrimitiveFunc>"
-showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
+showVal (Func {params = args, vararg = varargs}) =
     "(lambda (" ++ unwords (map show args) ++ (case varargs of
         Nothing -> ""
         Just arg -> " . " ++ arg) ++ ") ...)"
