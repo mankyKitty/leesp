@@ -26,7 +26,6 @@ data LispVal = Atom String
              | Keyword String
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
              | Func {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], closure :: Env}
-             | Func' {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], cls :: Env'}
              | IOFunc ([LispVal] -> IOThrowsError LispVal)
              | Port Handle
 
@@ -42,13 +41,11 @@ data LispError = NumArgs Integer [LispVal]
 
 type ThrowsError = Either LispError
 
-type Env = IORef [(String, IORef LispVal)]
+type Env = Map.Map String LispVal
 
-type Env' = Map.Map String LispVal
+type Eval a = ReaderT Env (ErrorT LispError (StateT Env Identity)) a
 
-type Eval a = ReaderT Env' (ErrorT LispError (StateT Env' Identity)) a
-
-runEval :: Env' -> Env' -> Eval a -> (Either LispError a,Env')
+runEval :: Env -> Env -> Eval a -> (Either LispError a,Env)
 runEval env st ev = runIdentity (runStateT (runErrorT (runReaderT ev env)) st)
 
 type IOThrowsError = ErrorT LispError IO
@@ -97,7 +94,3 @@ showVal (Func {params = args, vararg = varargs}) =
         Just arg -> " . " ++ arg) ++ ") ...)"
 showVal (Port _)               = "<IO port>"
 showVal (IOFunc _)             = "<IO primitive>"
-showVal (Func' {params = args, vararg = varargs}) =
-    "(lambda (" ++ unwords (map show args) ++ (case varargs of
-        Nothing -> ""
-        Just arg -> " . " ++ arg) ++ ") ...)"
