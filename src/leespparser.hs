@@ -1,3 +1,5 @@
+{-# LANGUAGE UnicodeSyntax #-}
+
 module LeespParser where
 
 import LeespTypes

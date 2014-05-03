@@ -1,3 +1,5 @@
+{-# LANGUAGE UnicodeSyntax #-}
+
 module Main where
 
 -- For genericN functions
@@ -18,6 +20,11 @@ import Data.IORef
 import qualified Data.Map as Map
 import Data.Maybe (isJust, isNothing, fromJust)
 
+-- Symbols
+import Data.Eq.Unicode
+import Data.Bool.Unicode
+import Data.Function.Unicode 
+
 import LeespTypes
 import LeespParser
 
@@ -37,6 +44,9 @@ readPrompt prompt = flushStr prompt >> getLine
 
 evalString :: Env -> String -> IO String
 evalString env expr = runIOThrows $ liftM show $ liftThrows (readExpr expr) >>= eval env
+
+evalString' ∷ Env' → LispVal → (Either LispError LispVal, Env')
+evalString' env exp = runEval env env (eval' exp)
 
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
@@ -91,8 +101,25 @@ apply (Func parms varargs body closure) args =
       Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
 
-bindVars' :: [String] -> [LispVal] -> Env' -> Env'
-bindVars parms args closure = map (\(k,v) -> Map.insert k v closure) . zip parms args
+apply' ∷ LispVal → [LispVal] → Eval LispVal
+apply' (PrimitiveFunc fun) args = case fun args of
+  Left err → throwError err
+  Right val → return val
+apply' (Func' parms vargs body closure) args =
+  if intLen parms ≢ intLen args ∧ isNothing vargs
+  then throwError $ NumArgs (intLen parms) args
+  else do ev' ← bindVarArgs vargs $ bindVars' closure zippedArgs
+          case evalBody ev' body of
+            (Left err, badState) → throwError err
+            (Right val, goodState) → return val
+  where
+    intLen = toInteger ∘ length    
+    remaining = drop (length parms) args
+    zippedArgs = zip parms args
+    bindVarArgs arg env = case arg of
+      Just argName -> return $ bindVars' env [(argName, List remaining)]
+      Nothing -> return env
+    evalBody env = last ∘ map (\expr → runEval env env (eval' expr))
 
 eval' :: LispVal -> Eval LispVal
 eval' val@(String _)               = return val
@@ -114,8 +141,36 @@ eval' (List (Atom "cond" : items)) = evCondFun items
 eval' (List (Atom "case" : sel : choices)) = eval' sel >>= evCaseFun choices
 -- Define a variable
 eval' (List [Atom "define", Atom var, form]) = eval' form >>= defineVar' var
+eval' (List (Atom "define" : List (Atom var : parms) : body)) = makeNormalFunc' parms body >>= defineVar' var
+eval' (List (Atom "define" : DottedList (Atom var : parms) varargs : body)) = makeVarArgs varargs parms body >>= defineVar' var
+eval' (List (Atom "lambda" : DottedList parms varargs : body)) = makeVarArgs varargs parms body
+eval' (List (Atom "lambda" : varargs@(Atom _) : body)) = makeVarArgs varargs [] body
+eval' (List (Atom "lambda" : List parms : body)) = makeNormalFunc' parms body
+eval' (List (function : args)) = do
+  func ← eval' function
+  argVals ← mapM (eval') args
+  apply' func argVals
 -- Yer done gone f**ked up.
 eval' badForm = throwError $ BadSpecialForm "Unrecognised special form" badForm
+
+makeFunc' ∷ Maybe String → [LispVal] → [LispVal] → Eval LispVal
+makeFunc' vargs parms body = do env ← ask
+                                return (Func' (map showVal parms) vargs body env)
+
+makeNormalFunc' ∷ [LispVal] → [LispVal] → Eval LispVal
+makeNormalFunc' = makeFunc' Nothing
+
+makeVarArgs ∷ LispVal → [LispVal] → [LispVal] → Eval LispVal
+makeVarArgs = makeFunc' ∘ Just ∘ showVal
+
+testingEval ∷ (Either LispError LispVal, Env')
+testingEval = runEval env env (eval' exp)
+  where
+    env = emptyEnv
+    exp = (List [(Atom "define"), (Atom "foo"),
+            (List [(Atom "lambda"),
+                   (List [(String "a"),(String "b")]),
+                   (List [(Atom "+"),(Atom "a"),(Atom "b")])])])
 
 evIfFun :: LispVal -> LispVal -> LispVal -> Eval LispVal
 evIfFun pred conseq alt =
@@ -408,6 +463,9 @@ equal badArgList = throwError $ NumArgs 2 badArgList
 nullEnv :: IO Env
 nullEnv = newIORef []
 
+emptyEnv ∷ Env'
+emptyEnv = Map.empty
+
 makeFunc :: Monad m => Maybe String -> Env -> [LispVal] -> [LispVal] -> m LispVal
 makeFunc varargs env parms body = return $ Func (map showVal parms) varargs body env
 
@@ -463,6 +521,9 @@ defineVar env var value = do
       writeIORef env ((var, valueRef) : env')
       return value
 
+bindVars' ∷ Env' → [(String,LispVal)] → Env'
+bindVars' envM bindings = Map.union envM $ Map.fromList bindings
+  
 bindVars :: Env -> [(String, LispVal)] -> IO Env
 bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
   where

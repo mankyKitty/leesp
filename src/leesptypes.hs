@@ -26,6 +26,7 @@ data LispVal = Atom String
              | Keyword String
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
              | Func {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], closure :: Env}
+             | Func' {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], cls :: Env'}
              | IOFunc ([LispVal] -> IOThrowsError LispVal)
              | Port Handle
 
@@ -96,3 +97,7 @@ showVal (Func {params = args, vararg = varargs}) =
         Just arg -> " . " ++ arg) ++ ") ...)"
 showVal (Port _)               = "<IO port>"
 showVal (IOFunc _)             = "<IO primitive>"
+showVal (Func' {params = args, vararg = varargs}) =
+    "(lambda (" ++ unwords (map show args) ++ (case varargs of
+        Nothing -> ""
+        Just arg -> " . " ++ arg) ++ ") ...)"
