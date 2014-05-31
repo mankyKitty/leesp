@@ -66,14 +66,14 @@ until_ pred prompt action = do result ← prompt
 
 -- This version of runOne expects a file input to read from.
 runOne ∷ [String] → IO ()
-runOne args = do
-  env ← flip bindVars [("args", List $ map String $ drop 1 args)] $ primitiveBindings
-  runIOThrows (liftM show (eval (List [Atom "import", String (head args)]))) >>= hPutStrLn stderr
+runOne args = evalAndPrint newEnv $ "(import " ++ head args ++ ")"
+  where
+    newEnv = flip bindVars [("args", List $ map String $ drop 1 args)] $ primitiveBindings
 
 runRepl ∷ IO ()
 runRepl = do
   displayReplBanner
-  primitiveBindings >>= until_ (≡ "quit") (readPrompt "Leesp >> ") ∘ evalAndPrint
+  until_ (≡ "quit") (readPrompt "Leesp >> ") $ evalAndPrint primitiveBindings
 
 displayReplBanner ∷ IO ()
 displayReplBanner =
@@ -189,14 +189,19 @@ evCaseFun ∷ [LispVal] → LispVal → Eval LispVal
 evCaseFun [] selector = throwError $ BadSpecialForm "Non-exhaustive patterns in " selector
 evCaseFun (comparator:conseq:rest) selector = do
   choice ← if caseHasAtom comparator then return comparator else eval comparator
-  case eqv [selector,choice] of
-    Left _ → throwError $ BadSpecialForm "Unknown Pattern in Case form " selector
-    Right v → case v of 
-      Bool True → eval conseq
-      Bool False → evCaseFun rest selector
+  equiv ← eqv [selector,choice]
+  case equiv of
+    Bool True → eval conseq
+    Bool False → evCaseFun rest selector
   where
     caseHasAtom (Atom _) = True
     caseHasAtom _        = False
+        
+  --   Left _ → throwError $ BadSpecialForm "Unknown Pattern in Case form " selector
+  --   Right v → case v of 
+  --     Bool True → eval conseq
+  --     Bool False → evCaseFun rest selector
+  -- where
 
 primitives ∷ [(String, [LispVal] → Eval LispVal)]
 primitives =
@@ -236,7 +241,7 @@ primitives =
           ("string-insert!", stringinsertFn),
           ("substring", subStringFn)]
 
-ioPrimitives ∷ [(String, [LispVal] → IOThrowsError LispVal)]
+ioPrimitives ∷ [(String, [LispVal] → Eval LispVal)]
 ioPrimitives = [("apply", applyProc),
                 ("open-input-file", makePort ReadMode),
                 ("open-output-file", makePort WriteMode),
@@ -261,7 +266,6 @@ subStringFn badArgList = throwError $ NumArgs 3 badArgList
 integerCount ∷ [a] → Int
 integerCount = foldl (\n x → n + 1) 0
 
-stringinsertFn ∷ [LispVal] → Eval LispVal
 stringinsertFn [String s, Number k, Character c] =
   if integerCount s >= idx
     then (return . String) $ x ++ [c] ++ xs
@@ -281,11 +285,11 @@ buildString ∷ String → [LispVal] -> String
 buildString acc [] = acc
 buildString acc (Character c : rest) = buildString (acc ++ [c]) rest
 
-makeStringFromArgs ∷ [LispVal] → ThrowsError LispVal
+makeStringFromArgs ∷ [LispVal] → Eval LispVal
 makeStringFromArgs val@(Character _ :_) = (return . String) $ buildString [] val
 makeStringFromArgs badArg               = throwError $ NumArgs 2 badArg
 
-stringLength ∷ [LispVal] → Eval LispVal
+stringLength ∷ [LispVal] → Eval  LispVal
 stringLength [String val] = (return . Number) $ L.genericLength val
 stringLength [badArg]     = throwError $ TypeMismatch "string" badArg
 stringLength badArgList   = throwError $ NumArgs 1 badArgList
@@ -298,11 +302,11 @@ makeStringN badArgList              = throwError $ NumArgs 1 badArgList
 
 numericBinop ∷ (Integer → Integer → Integer) → [LispVal] → Eval LispVal
 numericBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
-numericBinop op parms = (Number ∘ foldl1 op) <$> (mapM unpackNum parms)
+numericBinop op parms = (Number ∘ foldl1 op) <$> map (unpackNum) parms
 
-unpackNum ∷ LispVal → ThrowsError Integer
-unpackNum (Number n) = return n
-unpackNum notNum = throwError $ TypeMismatch "number" notNum
+unpackNum ∷ LispVal → Integer
+unpackNum (Number n) = n
+--unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
 boolBinop ∷ (LispVal → ThrowsError a) → (a → a → Bool) → [LispVal] → Eval LispVal
 boolBinop unpacker op args = if length args ≢ 2
@@ -319,7 +323,7 @@ unpackStr ∷ LispVal → ThrowsError String
 unpackStr (String s) = return s
 unpackStr (Number s) = return $ show s
 unpackStr (Bool s)   = return $ show s
-unpackStr notString  = throwError $ TypeMismatch "string" notString
+-- unpackStr notString  = throwError $ TypeMismatch "string" notString
 
 unpackBool ∷ LispVal → ThrowsError Bool
 unpackBool (Bool b) = return b
@@ -413,26 +417,26 @@ applyProc ∷ [LispVal] → Eval LispVal
 applyProc [func, List args] = apply func args
 applyProc (func : args) = apply func args
 
-makePort ∷ IOMode → [LispVal] → IOThrowsError LispVal
+makePort ∷ IOMode → [LispVal] → Eval LispVal
 makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
 
-closePort ∷ [LispVal] → IOThrowsError LispVal
+closePort ∷ [LispVal] → Eval LispVal
 closePort [Port port] = liftIO (hClose port) >> return (Bool True)
 
-readProc ∷ [LispVal] → IOThrowsError LispVal
+readProc ∷ [LispVal] → Eval LispVal
 readProc [] = readProc [Port stdin]
 readProc [Port port] = liftIO (hGetLine port) >>= liftThrows ∘ readExpr
 
-writeProc ∷ [LispVal] → IOThrowsError LispVal
+writeProc ∷ [LispVal] → Eval LispVal
 writeProc [obj] = writeProc [obj, Port stdout]
 writeProc [obj, Port port] = liftIO $ hPrint port obj >> return (Bool True)
 
-readContents ∷ [LispVal] → IOThrowsError LispVal
+readContents ∷ [LispVal] → Eval LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename
 
-load ∷ String → IOThrowsError [LispVal]
+load ∷ String → IO [LispVal]
 load filename = liftIO (readFile filename) >>= liftThrows ∘ readExprList
 
-readAll ∷ [LispVal] → IOThrowsError LispVal
+readAll ∷ [LispVal] → Eval LispVal
 readAll [String filename] = liftM List $ load filename
 -- END IO PRIMITIVES
