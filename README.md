@@ -9,7 +9,7 @@ To try your own hand at this, head on over to [the book](https://en.wikibooks.or
 
 Binary for OSX is available on the Releases page.
 
-Compiled using:```The Glorious Glasgow Haskell Compilation System, version 7.6.3``` on OSX 10.8.
+Developed on:```The Glorious Glasgow Haskell Compilation System, version 7.8.2``` on OSX 10.9.
 
 Other platforms should happily compile, but you'll have to manage that for yourselves (as I'm too lazy for VMs/Docker/Vagrant right now). The following should build the executable in a cabal-dev environment to try to keep things nice and clean.
 
