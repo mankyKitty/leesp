@@ -22,12 +22,12 @@ blockComment = try $ string "#|" >> manyTill (anyChar <|> newline) (try (string 
 
 parseCharacter :: Parser LispVal
 parseCharacter = do try $ string "#\\"
-                    value <- try (string "newline" <|> string "space")
-                             <|> do { x <- anyChar; notFollowedBy alphaNum ; return [x] }
+                    value@(v:_) <- try (string "newline" <|> string "space")
+                                   <|> do { x <- anyChar; notFollowedBy alphaNum ; return [x] }
                     return $ Character $ case value of
                       "space"   -> ' '
                       "newline" -> '\n'
-                      _         -> head value
+                      _         -> v
 
 escapeChars :: Parser Char
 escapeChars = do char '\\'
