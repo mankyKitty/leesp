@@ -46,7 +46,7 @@ parseBool = do char '#'
 parseKeyword :: Parser LispVal
 parseKeyword = do char ':'
                   x <- many1 (letter <|> digit <|> symbol)
-                  return $ Keyword $ ':' : x
+                  return $ Keyword $ ':' : x 
 
 parseString :: Parser LispVal
 parseString = do char '"'

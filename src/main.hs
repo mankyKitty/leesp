@@ -362,7 +362,7 @@ runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = liftM extractValue (runErrorT (trapError action))
 
 isBound :: Env -> String -> IO Bool
--- isBound envRef var = readIORef envRef >>= return . isJust . lookup var
+--isBound envRef var = readIORef envRef >>= return . isJust . lookup var
 isBound envRef var = liftM (isJust . lookup var) (readIORef envRef)
 
 getVar :: Env -> String -> IOThrowsError LispVal
