@@ -14,7 +14,7 @@ Developed on:```The Glorious Glasgow Haskell Compilation System, version 7.8.2``
 Other platforms should happily compile, but you'll have to manage that for yourselves (as I'm too lazy for VMs/Docker/Vagrant right now). The following should build the executable in a cabal-dev environment to try to keep things nice and clean.
 
 ```
-cabal-dev install
+cabal install
 ```
 Complicated no?
 
