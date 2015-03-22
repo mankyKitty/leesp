@@ -1,18 +1,15 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module LeespTypes where
 
-import Prelude hiding (head,tail)
-
-import Data.IORef
+import BasePrelude hiding (head,tail)
 import qualified Data.Map as Map
 
-import System.IO (Handle)
+import Control.Monad.Identity (Identity,runIdentity)
+import Control.Monad.Except (ExceptT,MonadError,catchError,runExceptT)
+import Control.Monad.State (StateT,runStateT)
 
-import Control.Monad.Identity
-import Control.Monad.Error
-import Control.Monad.Reader
-import Control.Monad.State
+import Control.Lens (makePrisms)
 
 import Text.ParserCombinators.Parsec (ParseError)
 
@@ -24,50 +21,54 @@ data LispVal = Atom String
              | Bool Bool
              | Character Char
              | Keyword String
-             | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
-             | Func {params :: [String], vararg :: Maybe String, fnBody :: [LispVal], closure :: Env}
+             | PrimitiveFunc ([LispVal] -> Eval LispVal)
+             | Func { params :: [String]
+                    , vararg :: Maybe String
+                    , fnBody :: [LispVal]
+                    , closure :: Env
+                    }
              | IOFunc ([LispVal] -> IOThrowsError LispVal)
              | Port Handle
-  
+
 data LispError = NumArgs Integer [LispVal]
-         | TypeMismatch String LispVal
-         | TypeMismatches String [LispVal]
-         | Parser ParseError
-         | BadSpecialForm String LispVal
-         | NotFunction String String
-         | UnboundVar String String
-         | BoundVar String LispVal
-         | Default String
+               | TypeMismatch String LispVal
+               | TypeMismatches String [LispVal]
+               | Parser ParseError
+               | BadSpecialForm String LispVal
+               | NotFunction String String
+               | UnboundVar String String
+               | BoundVar String LispVal
+               | Default String
 
 type ThrowsError = Either LispError
 
 type Env = Map.Map String LispVal
 
-type Eval a = ReaderT Env (ErrorT LispError (StateT Env Identity)) a
+type Eval = ExceptT LispError (StateT Env Identity)
 
-runEval :: Env -> Env -> Eval a -> (Either LispError a,Env)
-runEval env st ev = runIdentity (runStateT (runErrorT (runReaderT ev env)) st)
+type IOThrowsError = ExceptT LispError IO
 
-type IOThrowsError = ErrorT LispError IO
+-- It's here because of template haskell enforcing the order
+-- of definitions like a chump.
+makePrisms ''LispVal
 
 instance Show LispError where show = showError
 instance Show LispVal where show = showVal
 
-instance Error LispError where
-  noMsg = Default "An error has occurred"
-  strMsg = Default
+runEval :: Env -> Eval a -> (Either LispError a, Env)
+runEval env st = runIdentity (runStateT (runExceptT st) env)
 
 trapError :: (MonadError e m, Show e) => m String -> m String
 trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
-extractValue (Right val) = val
-extractValue (Left _) = error "Extract Value shouldn't be here"
+extractValue = either (error "Oh dear..") id
 
 unWordsList :: [LispVal] -> String
 unWordsList = unwords . map showVal
 
 showError :: LispError -> String
+showError (BoundVar message varname)    = message ++ ":" ++ show varname
 showError (UnboundVar message varname)  = message ++ ":" ++ varname
 showError (BadSpecialForm message form) = message ++ ":" ++ show form
 showError (NotFunction message func)    = message ++ ":" ++ show func

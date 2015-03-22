@@ -1,9 +1,10 @@
-{-# LANGUAGE UnicodeSyntax #-}
-
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 module LeespParser where
 
+import BasePrelude hiding (liftM,many,try,(<|>))
+
 import LeespTypes
-import Control.Monad (liftM)
 import Numeric (readOct, readHex)
 import Text.ParserCombinators.Parsec hiding (spaces)
 
@@ -46,7 +47,9 @@ parseBool = do char '#'
                (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
 
 parseKeyword :: Parser LispVal
-parseKeyword = char ':' >> many1 (letter <|> digit <|> symbol) >>= return $ Keyword $ ':' (:) 
+parseKeyword = do char ':'
+                  kw <- many1 (letter <|> digit <|> symbol)
+                  return $ Keyword $ ':' : kw 
 
 parseString :: Parser LispVal
 parseString = do char '"'
@@ -55,9 +58,9 @@ parseString = do char '"'
                  return $ String x
 
 parseAtom :: Parser LispVal
-parseAtom = do first <- letter <|> symbol
+parseAtom = do hd <- letter <|> symbol
                rest <- many (letter <|> digit <|> symbol)
-               let atom = first : rest
+               let atom = hd : rest
                return $ case atom of
                           "#t" -> Bool True
                           "#f" -> Bool False
@@ -67,7 +70,7 @@ parseNumber :: Parser LispVal
 parseNumber = parseDigital1 <|> parseDigital2 <|> parseHex <|> parseOct <|> parseBin
 
 parseDigital1 :: Parser LispVal
-parseDigital1 = liftM (Number . read) (many1 digit)
+parseDigital1 = (Number . read) <$> many1 digit
 
 parseDigital2 :: Parser LispVal
 parseDigital2 = do try $ string "#d"
@@ -119,12 +122,12 @@ parseExpr = do
            return x
   
 parseList :: Parser LispVal
-parseList = liftM List $ sepBy parseExpr spaces
+parseList = List <$> sepBy parseExpr spaces
 
 parseDottedList :: Parser LispVal
-parseDottedList = do head <- endBy parseExpr spaces
-                     tail <- char '.' >> spaces >> parseExpr
-                     return $ DottedList head tail
+parseDottedList = do h <- endBy parseExpr spaces
+                     t <- char '.' >> spaces >> parseExpr
+                     return $ DottedList h t
 
 parseQuoted :: Parser LispVal
 parseQuoted = do char '\''
